@@ -3,9 +3,9 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-SCRAPPING YOUTUBE 
+# SCRAPPING YOUTUBE 
 
-LIBRARIES 
+## LIBRARIES 
 ```{r}
 library(httr2)
 library(jsonlite)
@@ -18,7 +18,6 @@ library(dotenv)
 load_dot_env(file = ".env")
 API_KEY <- Sys.getenv("API_KEY")
 print(API_KEY)
-
 ```
 
 ```{r}
@@ -35,7 +34,7 @@ related_playlists <- content_details$relatedPlaylists
 str(related_playlists)
 ```
 
-Get the video IDs
+## Get the video IDs
 
 ```{r}
 # Function to get video IDs from the "uploads" playlist
@@ -111,6 +110,170 @@ comments_df <- unnest_longer(comments_df, col = all_of(snippet_columns))
 print(comments_df) #we have all the info on a df now. 
 ```
 
-Sentiment Analysis 
+## Sentiment Analysis 
+
+
+
+
+
+
+
+
+# SCRAPPING REDDIT
+
+### Authentification
+
+### Libraries that we have used
+
+```{r}
+rm(list = ls())
+library(httr)
+library(httr2)
+library(jsonlite)
+library(dplyr)
+library(scrapex)
+```
+
+### OAuth 2.0
+
+```{r}
+install.packages("dotenv")
+library(dotenv)
+dotenv::load_dot_env(file = "data.env")
+access_token = Sys.getenv("access_token")
+```
+
+### Requesting the data using API
+
+```{r}
+search_url <- "https://api.reddit.com/r/subreddit/search"
+search_params <- list(
+  q = "Donald Trump",
+  sort = "relevance",
+  limit = 100
+)
+
+req <- GET(
+  url = search_url,
+  add_headers("Authorization" = paste("Bearer", access_token)),
+  add_headers("User-Agent" = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"),
+  query = search_params
+)
+
+status_code(req)
+
+# Parse the JSON content from the response
+response_json <- content(req, as = "text", encoding = "UTF-8")
+
+# Convert the JSON content to a list
+response_list <- fromJSON(response_json)
+
+# Extract link IDs from the search results
+link_title <- response_list$data$children$data$title
+print(link_title)
+
+title <- data.frame(link_title)
+print(title)
+```
+
+### Text_mining
+
+```{r}
+library(tidytext)
+
+get_sentiments("afinn")
+get_sentiments("bing")
+nrc = get_sentiments("nrc")
+
+# joy 
+nrc_joy <- get_sentiments("nrc") %>% 
+  filter(sentiment == "joy")
+
+# negative
+nrc_negative <- get_sentiments("nrc") |> 
+  filter(sentiment == "negative")
+
+# fear
+nrc_fear <- get_sentiments("nrc") |> 
+  filter(sentiment == "fear")
+
+# anger
+nrc_anger <- get_sentiments("nrc") |> 
+  filter(sentiment == "anger")
+
+# trust
+nrc_trust <- get_sentiments("nrc") |> 
+  filter(sentiment == "trust")
+
+# sadness
+nrc_sadness <- get_sentiments("nrc") |> 
+  filter(sentiment == "sadness")
+
+# unnesting the word
+word = title |> unnest_tokens(word, link_title) |> distinct(word)
+```
+
+### sentimental analysis
+
+````{R}
+# trump_joy
+trump_joy <- word |> 
+    #we combine both lists, NRC and Emma's words
+    inner_join(nrc_joy) %>%
+    #we count the mentions of each word to find the most frequent
+    count(word, sort = TRUE)
+
+trump_joy$type <- c("joy")
+
+# trump_negative
+trump_negative <- word |> 
+  inner_join(nrc_negative) |> 
+  count(word, sort = TRUE)
+
+trump_negative$type <- c("negative")
+
+# trump_fear
+trump_fear <- word |> 
+  inner_join(nrc_fear) |> 
+  count(word, sort = TRUE)
+
+trump_fear$type <- c("fear")
+
+# trump_anger
+trump_anger <- word |> 
+  inner_join(nrc_anger) |> 
+  count(word, sort = TRUE)
+
+trump_anger$type <- c("anger")
+
+# trump_trust
+trump_trust <- word |> 
+  inner_join(nrc_trust) |> 
+  count(word, sort = TRUE)
+
+trump_trust$type = c("trust")
+
+# trump_saeness
+trump_sadness <- word |> 
+  inner_join(nrc_sadness) |> 
+  count(word, sort = TRUE)
+
+trump_sadness$type <- c("sadness")
+
+trump = rbind(trump_joy, trump_negative, trump_negative, trump_anger, trump_trust, trump_sadness)
+```
+
+### graph
+
+```{r}
+library(ggplot2)
+
+unique(trump$type)
+
+trump |> group_by(type) |> head() |> ungroup() |> 
+ggplot(aes(word, n, fill = type)) +
+  geom_col(show.legend = TRUE) +
+  facet_wrap(~type, nrow = 3, scales = "free_x")
+```
 
 
