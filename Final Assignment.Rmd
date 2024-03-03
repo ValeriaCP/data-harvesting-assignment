@@ -1,0 +1,116 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+SCRAPPING YOUTUBE 
+
+LIBRARIES 
+```{r}
+library(httr2)
+library(jsonlite)
+library(tibble)
+library(tidyr)
+library(dotenv)
+```
+
+```{r}
+load_dot_env(file = ".env")
+API_KEY <- Sys.getenv("API_KEY")
+print(API_KEY)
+
+```
+
+```{r}
+channel_username <- "CNN"
+
+# Get the list of uploads for the CNN channel
+url_channel <- paste0('https://www.googleapis.com/youtube/v3/channels?part=contentDetails&forUsername=', channel_username, '&key=', API_KEY)
+response_channel <- GET(url_channel)
+channel_info <- fromJSON(content(response_channel, "text"))
+str(channel_info)
+content_details <- channel_info$items$contentDetails
+str(content_details)
+related_playlists <- content_details$relatedPlaylists
+str(related_playlists)
+```
+
+Get the video IDs
+
+```{r}
+# Function to get video IDs from the "uploads" playlist
+get_video_ids <- function() {
+  url_channel <- paste0('https://www.googleapis.com/youtube/v3/channels?part=contentDetails&forUsername=', channel_username, '&key=', API_KEY)
+  response_channel <- GET(url_channel)
+  channel_info <- fromJSON(content(response_channel, "text"))
+
+  # Extract the "uploads" playlist ID for CNN's channel
+  uploads_playlist_id <- channel_info$items$contentDetails$relatedPlaylists$uploads
+
+  # Construct the URL for retrieving videos in the "uploads" playlist
+  url_videos <- paste0('https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=', uploads_playlist_id, '&maxResults=5&key=', API_KEY)
+
+  # Make the API request to get the videos
+  response_videos <- GET(url_videos)
+  videos_info <- fromJSON(content(response_videos, "text"))
+
+  # Extract the video IDs
+  video_ids <- videos_info$items$contentDetails$videoId
+
+  return(video_ids)
+}
+
+# Retrieve video IDs from the "uploads" playlist
+video_ids <- get_video_ids()
+
+# Function to get comments for a specific video
+get_comments_for_video <- function(video_id) {
+  # Construct the URL for retrieving comments for the video
+  url_comments <- paste0('https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=', video_id, '&key=', API_KEY)
+
+  # Make the API request to get the comments
+  response_comments <- GET(url_comments)
+  comments_info <- fromJSON(content(response_comments, "text"))
+
+  # Print or process the comments data as needed
+  cat("Comments for Video ID:", video_id, "\n")
+  print(comments_info)
+  cat("\n")
+}
+
+# Retrieve comments for each video in the playlist
+comments <- for (video_id in video_ids) {
+  get_comments_for_video(video_id)
+}
+
+
+```
+
+```{r}
+library(tidyr)
+library(tibble)
+
+# Extract relevant information from comments_info
+comments_df <- tibble(
+  kind = comments_info$kind,
+  etag = comments_info$etag,
+  nextPageToken = comments_info$nextPageToken,
+  totalResults = comments_info$pageInfo$totalResults,
+  resultsPerPage = comments_info$pageInfo$resultsPerPage,
+  items = comments_info$items
+)
+comments_df <- unnest(comments_df, cols = c(items), names_sep = "_")
+comments_df <- unnest(comments_df, cols = c(items_snippet), names_sep = "_")
+comments_df <- unnest(comments_df, cols = c(items_snippet_topLevelComment), names_sep = "_")
+comments_df <- unnest(comments_df, cols = c(items_snippet_topLevelComment_snippet), names_sep = "_")
+comments_df <- unnest(comments_df, cols = c(items_snippet_topLevelComment_snippet_authorChannelId), names_sep = "_")
+snippet_columns <- grep("^snippet\\.topLevelComment\\.", colnames(comments_df), value = TRUE)
+
+# Unnest the identified snippet columns
+comments_df <- unnest_longer(comments_df, col = all_of(snippet_columns))
+print(comments_df) #we have all the info on a df now. 
+```
+
+Sentiment Analysis 
+
+
