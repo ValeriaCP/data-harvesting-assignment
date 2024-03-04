@@ -2,3 +2,4 @@
 
 # Ignorar el archivo .env
 .env
+.Rproj.user
