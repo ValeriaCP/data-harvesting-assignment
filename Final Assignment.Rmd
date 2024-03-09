@@ -1,12 +1,15 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 # SCRAPPING YOUTUBE 
 
 ## LIBRARIES 
 ```{r}
+library(httr)
 library(httr2)
 library(jsonlite)
 library(tibble)
@@ -15,7 +18,7 @@ library(dotenv)
 ```
 
 ```{r}
-install.packages("dotenv")
+#install.packages("dotenv")
 library(dotenv)
 
 load_dot_env(file = ".env")
@@ -83,8 +86,6 @@ get_comments_for_video <- function(video_id) {
 comments <- for (video_id in video_ids) {
   get_comments_for_video(video_id)
 }
-
-
 ```
 
 ```{r}
@@ -139,28 +140,32 @@ library(scrapex)
 ### OAuth 2.0
 
 ```{r}
-install.packages("dotenv")
+#install.packages("dotenv")
 library(dotenv)
-dotenv::load_dot_env(file = "data.env")
+dotenv::load_dot_env(file = ".env")
 access_token = Sys.getenv("access_token")
 ```
 
 ### Requesting the data using API
 
 ```{r}
-search_url <- "https://api.reddit.com/r/subreddit/search"
+search_url <- "https://api.reddit.com/r/subreddit/comments/article"
 search_params <- list(
-  q = "Donald Trump",
-  sort = "relevance",
-  limit = 100
+  showtitle = "Donald Trump",
+  sort = "top",
+  limit = 50,
+  context = 
 )
+
 
 req <- GET(
   url = search_url,
-  add_headers("Authorization" = paste("Bearer", access_token)),
+  add_headers("Authorization" = paste("Bearer ", access_token)),
   add_headers("User-Agent" = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"),
   query = search_params
 )
+
+print(req)
 
 status_code(req)
 
