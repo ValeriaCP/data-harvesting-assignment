@@ -314,6 +314,8 @@ sentiments %>%
 
 As visualization above, it becomes evident that the lexicon associated with Trump leans more towards negative sentiments than positive ones. The prevalence of words expressing unfavorable sentiments surpasses those conveying a positive tone in discussions related to Trump on the YouTube comments for the CNN channel and playlist about "Politics". 
 
+
+
 # SCRAPPING REDDIT
 
 ### Authentification
@@ -341,23 +343,24 @@ access_token = Sys.getenv("access_token")
 ### Requesting the data using API
 
 ```{r}
-search_url <- "https://api.reddit.com/r/subreddit/comments/article"
+search_url <- "https://api.reddit.com/search"
+
 search_params <- list(
-  showtitle = "Donald Trump",
-  sort = "top",
-  limit = 50,
-  context = 
+  q = "Donald Trump",
+  type = "comments",
+  sort = "relevance",
+  limit = 100,
+  "Authorization" = paste("Bearer", access_token),
+  "User-Agent" = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 )
 
 
 req <- GET(
   url = search_url,
-  add_headers("Authorization" = paste("Bearer ", access_token)),
-  add_headers("User-Agent" = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"),
   query = search_params
 )
 
-print(req)
+content(req)
 
 status_code(req)
 
@@ -368,11 +371,11 @@ response_json <- content(req, as = "text", encoding = "UTF-8")
 response_list <- fromJSON(response_json)
 
 # Extract link IDs from the search results
-link_title <- response_list$data$children$data$title
+link_comments <- response_list$data$children$data
 print(link_title)
 
-title <- data.frame(link_title)
-print(title)
+comments <- data.frame(link_comments)
+print(link_comments)
 ```
 
 ### Text_mining
