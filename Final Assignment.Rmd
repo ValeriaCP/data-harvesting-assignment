@@ -343,12 +343,12 @@ access_token = Sys.getenv("access_token")
 ### Requesting the data using API
 
 ```{r}
-search_url <- "https://api.reddit.com/search"
+search_url <- "https://api.reddit.com/r/politics/comments"
 
 search_params <- list(
   q = "Donald Trump",
   type = "comments",
-  sort = "relevance",
+  sort = "best",
   limit = 100,
   "Authorization" = paste("Bearer", access_token),
   "User-Agent" = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
@@ -371,10 +371,7 @@ response_json <- content(req, as = "text", encoding = "UTF-8")
 response_list <- fromJSON(response_json)
 
 # Extract link IDs from the search results
-link_comments <- response_list$data$children$data
-print(link_title)
-
-comments <- data.frame(link_comments)
+link_comments <- data.frame(response_list$data$children$data$body)
 print(link_comments)
 ```
 
