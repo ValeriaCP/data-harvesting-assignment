@@ -354,7 +354,7 @@ search_params <- list(
   "User-Agent" = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 )
 
-
+# best
 req <- GET(
   url = search_url,
   query = search_params
@@ -370,9 +370,149 @@ response_json <- content(req, as = "text", encoding = "UTF-8")
 # Convert the JSON content to a list
 response_list <- fromJSON(response_json)
 
-# Extract link IDs from the search results
+# Extract comments from the search results
 link_comments <- data.frame(response_list$data$children$data$body)
 print(link_comments)
+
+link_comments <- link_comments %>%
+  rename("text" = "response_list.data.children.data.body")
+
+```
+
+```{R}
+# relevance
+search_params_2 <- list(
+  q = "Donald Trump",
+  type = "comments",
+  sort = "relevance",
+  limit = 100,
+  "Authorization" = paste("Bearer", access_token),
+  "User-Agent" = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
+
+req2 <- GET(
+  url = search_url,
+  query = search_params_2
+)
+
+print(req2)
+
+# Parse the JSON content from the response
+response_json_2 <- content(req2, as = "text", encoding = "UTF-8")
+
+# Convert the JSON content to a list
+response_list_2 <- fromJSON(response_json_2)
+
+# Extract comments from the search results
+link_comments_2 <- data.frame(response_list_2$data$children$data$body)
+print(link_comments_2)
+
+link_comments_2 <- link_comments_2 %>%
+  rename("text" = "response_list_2.data.children.data.body")
+
+```
+
+```{R}
+# top
+search_params_3 <- list(
+  q = "Donald Trump",
+  type = "comments",
+  sort = "top",
+  limit = 100,
+  "Authorization" = paste("Bearer", access_token),
+  "User-Agent" = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
+
+req3 <- GET(
+  url = search_url,
+  query = search_params_3
+)
+
+print(req3)
+
+# Parse the JSON content from the response
+response_json_3 <- content(req3, as = "text", encoding = "UTF-8")
+
+# Convert the JSON content to a list
+response_list_3 <- fromJSON(response_json_3)
+
+# Extract comments from the search results
+link_comments_3 <- data.frame(response_list_3$data$children$data$body)
+print(link_comments_3)
+
+link_comments_3 <- link_comments_3 %>%
+  rename("text" = "response_list_3.data.children.data.body")
+```
+
+```{r}
+# hot
+search_params_4 <- list(
+  q = "Donald Trump",
+  type = "comments",
+  sort = "hot",
+  limit = 100,
+  "Authorization" = paste("Bearer", access_token),
+  "User-Agent" = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
+
+req4 <- GET(
+  url = search_url,
+  query = search_params_4
+)
+
+print(req4)
+
+# Parse the JSON content from the response
+response_json_4 <- content(req4, as = "text", encoding = "UTF-8")
+
+# Convert the JSON content to a list
+response_list_4 <- fromJSON(response_json_4)
+
+# Extract comments from the search results
+link_comments_4 <- data.frame(response_list_4$data$children$data$body)
+print(link_comments_4)
+
+link_comments_4 <- link_comments_4 %>%
+  rename("text" = "response_list_4.data.children.data.body")
+```
+
+```{r}
+# new
+search_params_5 <- list(
+  q = "Donald Trump",
+  type = "comments",
+  sort = "new",
+  limit = 100,
+  "Authorization" = paste("Bearer", access_token),
+  "User-Agent" = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
+
+req5 <- GET(
+  url = search_url,
+  query = search_params_5
+)
+
+print(req5)
+
+# Parse the JSON content from the response
+response_json_5 <- content(req5, as = "text", encoding = "UTF-8")
+
+# Convert the JSON content to a list
+response_list_5 <- fromJSON(response_json_5)
+
+# Extract comments from the search results
+link_comments_5 <- data.frame(response_list_5$data$children$data$body)
+print(link_comments_5)
+
+link_comments_5 <- link_comments_5 %>%
+  rename("text" = "response_list_5.data.children.data.body")
+```
+
+
+```{R}
+trump = rbind(link_comments, link_comments_2, link_comments_3, link_comments_4, link_comments_5)
+
+print(trump)
 ```
 
 ### Text_mining
@@ -383,7 +523,12 @@ library(tidytext)
 get_sentiments("afinn")
 get_sentiments("bing")
 nrc = get_sentiments("nrc")
+```
 
+### sentimental analysis
+### nrc analysis (word count)
+
+````{R}
 # Using nrc first to segment the sentiments
 # positive 
 nrc_positive <- get_sentiments("nrc") %>% 
@@ -402,13 +547,12 @@ nrc_trust <- get_sentiments("nrc") |>
   filter(sentiment == "trust")
 
 # unnesting the word
-word = link_comments |> unnest_tokens(word, response_list.data.children.data.body)
+word = trump |> unnest_tokens(word, text)
 print(word)
+
 ```
 
-### sentimental analysis
-
-````{R}
+```{R}
 # trump_joy
 trump_positive <- word |> 
     #we combine both lists, NRC and Emma's words
@@ -443,23 +587,96 @@ trump_trust <- word |>
 trump_trust$type = c("trust")
 print(trump_trust)
 
-trump = rbind(trump_positive, trump_negative, trump_anger, trump_trust)
-print(trump)
+trump_nrc = rbind(trump_positive, trump_negative, trump_anger, trump_trust)
+print(trump_nrc)
 
 # erase the word "vote" since it is neutral and duplicated a lot
-trump = trump |> filter(word != "vote")
-print(trump)
+trump_nrc = trump_nrc |> filter(word != "vote")
+print(trump_nrc)
 ```
 
-### graph
+### graph for nrc analysis
 
 ```{r}
 library(ggplot2)
 
-trump |> filter(n > 2) |> 
+sentiment_nrc <- trump_nrc |> filter(n > 11) |> 
 ggplot(aes(word, n, fill = type)) +
   geom_col(show.legend = TRUE) +
-  facet_wrap(~type, nrow = 4, scales = "free_x")
+  facet_wrap(~type, nrow = 4, scales = "free_x") +
+  ylab(NULL) + 
+  theme_minimal() +
+  theme(strip.text = element_text(face = "bold"),
+        axis.text.x = element_text(size = 5.8, face = 'bold'),
+        plot.margin = unit(c(1, 1, 1, 0.1), "cm"),
+        legend.position = "none")
+
+
+print(sentiment_nrc)
 ```
 
+### Term frequency analysis
+
+```{r}
+total_comment_words <- trump_nrc %>% 
+  #we group by books to sum all the totals in the n column of book_words
+  group_by(type) %>% 
+  #we create a column called total with the total of words by book
+  summarize(total = sum(n))
+
+total_comment_words
+```
+
+```{r}
+comment_words <- left_join(trump_nrc, total_comment_words)
+comment_words
+```
+```{r}
+comment_words <- comment_words %>%
+  #we add a column for term_frequency in each novel
+  mutate(term_frequency = n/total)
+
+comment_words
+```
+
+```{r}
+library(ggplot2)
+
+#we calculate the distribution and put it in the x axis, filling by book
+ggplot(comment_words, aes(term_frequency)) +
+  #we create the bars histogram
+  geom_histogram(show.legend = TRUE) +
+  #we set the limit for the term frequency in the x axis
+  xlim(NA, 0.03)
+```
+
+```{r}
+ggplot(comment_words, aes(term_frequency, fill = type)) +
+  #we create the bars histogram
+  geom_histogram(show.legend = TRUE) +
+  #we set the limit for the term frequency in the x axis
+  xlim(NA, 0.04) +
+  #plot settings
+  facet_wrap(~type, ncol = 2, scales = "free_y")
+```
+
+```{r}
+freq_by_rank <- comment_words %>% 
+  group_by(type) %>% 
+  #we create the column for the rank with row_number by book
+  mutate(rank = row_number()) %>%
+  ungroup()
+
+freq_by_rank
+
+freq_by_rank |> group_by(type) |> filter(rank == 1 | rank == 2)
+```
+
+```{r}
+freq_by_rank %>% 
+  ggplot(aes(rank, term_frequency, color = type)) + 
+  #plot settings
+  geom_line(linewidth = 1.1, alpha = 0.8, show.legend = TRUE) +
+  theme_minimal()
+```
 
