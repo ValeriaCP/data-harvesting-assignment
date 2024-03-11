@@ -360,7 +360,7 @@ req <- GET(
   query = search_params
 )
 
-content(req)
+print(req)
 
 status_code(req)
 
