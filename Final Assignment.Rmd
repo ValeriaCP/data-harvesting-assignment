@@ -384,17 +384,14 @@ get_sentiments("afinn")
 get_sentiments("bing")
 nrc = get_sentiments("nrc")
 
-# joy 
-nrc_joy <- get_sentiments("nrc") %>% 
-  filter(sentiment == "joy")
+# Using nrc first to segment the sentiments
+# positive 
+nrc_positive <- get_sentiments("nrc") %>% 
+  filter(sentiment == "positive")
 
 # negative
 nrc_negative <- get_sentiments("nrc") |> 
   filter(sentiment == "negative")
-
-# fear
-nrc_fear <- get_sentiments("nrc") |> 
-  filter(sentiment == "fear")
 
 # anger
 nrc_anger <- get_sentiments("nrc") |> 
@@ -404,25 +401,23 @@ nrc_anger <- get_sentiments("nrc") |>
 nrc_trust <- get_sentiments("nrc") |> 
   filter(sentiment == "trust")
 
-# sadness
-nrc_sadness <- get_sentiments("nrc") |> 
-  filter(sentiment == "sadness")
-
 # unnesting the word
-word = title |> unnest_tokens(word, link_title) |> distinct(word)
+word = link_comments |> unnest_tokens(word, response_list.data.children.data.body)
+print(word)
 ```
 
 ### sentimental analysis
 
 ````{R}
 # trump_joy
-trump_joy <- word |> 
+trump_positive <- word |> 
     #we combine both lists, NRC and Emma's words
-    inner_join(nrc_joy) %>%
+    inner_join(nrc_positive) %>%
     #we count the mentions of each word to find the most frequent
     count(word, sort = TRUE)
 
-trump_joy$type <- c("joy")
+trump_positive$type <- c("positive")
+print(trump_positive)
 
 # trump_negative
 trump_negative <- word |> 
@@ -430,13 +425,7 @@ trump_negative <- word |>
   count(word, sort = TRUE)
 
 trump_negative$type <- c("negative")
-
-# trump_fear
-trump_fear <- word |> 
-  inner_join(nrc_fear) |> 
-  count(word, sort = TRUE)
-
-trump_fear$type <- c("fear")
+print(trump_negative)
 
 # trump_anger
 trump_anger <- word |> 
@@ -444,6 +433,7 @@ trump_anger <- word |>
   count(word, sort = TRUE)
 
 trump_anger$type <- c("anger")
+print(trump_anger)
 
 # trump_trust
 trump_trust <- word |> 
@@ -451,15 +441,14 @@ trump_trust <- word |>
   count(word, sort = TRUE)
 
 trump_trust$type = c("trust")
+print(trump_trust)
 
-# trump_saeness
-trump_sadness <- word |> 
-  inner_join(nrc_sadness) |> 
-  count(word, sort = TRUE)
+trump = rbind(trump_positive, trump_negative, trump_anger, trump_trust)
+print(trump)
 
-trump_sadness$type <- c("sadness")
-
-trump = rbind(trump_joy, trump_negative, trump_negative, trump_anger, trump_trust, trump_sadness)
+# erase the word "vote" since it is neutral and duplicated a lot
+trump = trump |> filter(word != "vote")
+print(trump)
 ```
 
 ### graph
@@ -467,12 +456,10 @@ trump = rbind(trump_joy, trump_negative, trump_negative, trump_anger, trump_trus
 ```{r}
 library(ggplot2)
 
-unique(trump$type)
-
-trump |> group_by(type) |> head() |> ungroup() |> 
+trump |> filter(n > 2) |> 
 ggplot(aes(word, n, fill = type)) +
   geom_col(show.legend = TRUE) +
-  facet_wrap(~type, nrow = 3, scales = "free_x")
+  facet_wrap(~type, nrow = 4, scales = "free_x")
 ```
 
 
