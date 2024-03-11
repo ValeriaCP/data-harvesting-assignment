@@ -7,34 +7,56 @@ output:
 
 # SCRAPPING YOUTUBE 
 
-## LIBRARIES 
+##Libraries used 
+ 
 ```{r}
-library(httr)
+#install.packages("httr2")
+#install.packages("httr")
+#install.packages("jsonlite")
+#install.packages("tibble")
+#install.packages("tidyr")
+#install.packages("dotenv")
+
 library(httr2)
+library(httr)
 library(jsonlite)
 library(tibble)
 library(tidyr)
 library(dotenv)
 ```
+To be able to scrap information from the YouTube API we have to have an API KEY, this is sensitive information that we can not share with everyone, the steps to get a YouTube API are the following: 
+
+1. First create a Google account to access the Google API console and be able to request an API key. 
+2. Second step is to create a project on the Google Developers Console by clicking on the project dropdown that is next to the Google cloud logo. 
+3. After creating a new project, go to the left side bar and select "APIs & Services" and then on then clic on the "Enable APIS and Services" and search for the  "YouTube Data API v3", select it and enable it. 
+4. After enabling the API, click on the "Create Credentials" button and choose the API key option.
+5. Finally, once created, the API key will be displayed on the screen, ensure to copy the API key and keep it secure.
+
+Once we have the API KEY, we can use it on R but as mentioned above when having a API KEY we should be careful to handle it due to several security and privacy concerns API keys are credentials to access specific resources, therefore we should avoid to give this access to malicious actors to manipulate or retrieve sensitive information. 
+
+So, the next step is to create a ".env" file to keep sensitive information in here and the exposure of this sensitive information to unauthorized persons.
 
 ```{r}
-#install.packages("dotenv")
-library(dotenv)
-
-load_dot_env(file = ".env")
-API_KEY <- Sys.getenv("API_KEY")
+load_dot_env(file = ".env") #this function is to load environment variables from a dotenv file, where the file is named .env
+API_KEY <- Sys.getenv("API_KEY") #we retrieve the value associated with the environment variable called "API-KEY"
 ```
 
 ```{r}
-channel_username <- "CNN"
+channel_username <- "CNN" #we define a variable called "CNN" since this is the channel_username that we want to retrive information from. 
 
-# Get the list of uploads for the CNN channel
+#created the API request URL
 url_channel <- paste0('https://www.googleapis.com/youtube/v3/channels?part=contentDetails&forUsername=', channel_username, '&key=', API_KEY)
+#make the API request URL 
 response_channel <- GET(url_channel)
+#Parsing API response, we use "text" to specify that we want this type of content to be extracted from the HTTP response.
 channel_info <- fromJSON(content(response_channel, "text"))
 str(channel_info)
+
+
+
+#We see if on the "items" element there is the comment section  
 content_details <- channel_info$items$contentDetails
-str(content_details)
+# We can see a data frame containing information about related playlists.
 related_playlists <- content_details$relatedPlaylists
 str(related_playlists)
 ```
@@ -52,7 +74,7 @@ get_video_ids <- function() {
   uploads_playlist_id <- channel_info$items$contentDetails$relatedPlaylists$uploads
 
   # Construct the URL for retrieving videos in the "uploads" playlist
-  url_videos <- paste0('https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=', uploads_playlist_id, '&maxResults=5&key=', API_KEY)
+  url_videos <- paste0('https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=', uploads_playlist_id, '&maxResults=100&key=', API_KEY)
 
   # Make the API request to get the videos
   response_videos <- GET(url_videos)
@@ -91,8 +113,10 @@ comments <- for (video_id in video_ids) {
 ```{r}
 library(tidyr)
 library(tibble)
+library(dplyr)
+snippet.topLevelComment.snippet.textDisplay
 
-# Extract relevant information from comments_info
+#Extract relevant information from comments_info
 comments_df <- tibble(
   kind = comments_info$kind,
   etag = comments_info$etag,
@@ -111,16 +135,184 @@ snippet_columns <- grep("^snippet\\.topLevelComment\\.", colnames(comments_df), 
 # Unnest the identified snippet columns
 comments_df <- unnest_longer(comments_df, col = all_of(snippet_columns))
 print(comments_df) #we have all the info on a df now. 
+print(comments_df$items_snippet_topLevelComment_snippet_textOriginal) #print the comment column
+
+#Selected the columns that will be used for the sentiment analysis 
+comments_df <- comments_df |> select(items_snippet_topLevelComment_snippet_authorDisplayName, items_snippet_topLevelComment_snippet_textOriginal,kind) |>
+  rename( #renamed columns for a better undestanding
+    user = items_snippet_topLevelComment_snippet_authorDisplayName,
+    comment = items_snippet_topLevelComment_snippet_textOriginal,
+    kind = kind
+  )
 ```
 
-## Sentiment Analysis 
+### Text_mining
 
+```{r}
+library(tidytext)
+library(dplyr)
 
+get_sentiments("afinn")
+get_sentiments("bing")
+get_sentiments("nrc")
 
+# joy 
+nrc_joy <- get_sentiments("nrc") %>%  
+  filter(sentiment == "joy")
 
+# negative
+nrc_negative <- get_sentiments("nrc") |> 
+  filter(sentiment == "negative")
 
+# fear
+nrc_fear <- get_sentiments("nrc") |> filter(sentiment == "fear")
 
+# anger
+nrc_anger <- get_sentiments("nrc") |> 
+  filter(sentiment == "anger")
 
+# trust
+nrc_trust <- get_sentiments("nrc") |> 
+  filter(sentiment == "trust")
+
+# sadness
+nrc_sadness <- get_sentiments("nrc") |> 
+  filter(sentiment == "sadness")
+
+# unnesting the word
+
+yt_word <- comments_df |>
+  unnest_tokens(word, comment) |> 
+  distinct(user,word)
+```
+
+##Sentiment Analysis 
+
+```{r}
+# trump_joy
+yt_trump_joy <- yt_word |> 
+    inner_join(nrc_joy) |> 
+    count(word, sort = TRUE)
+
+yt_trump_joy$type <- c("joy")
+
+# trump_negative
+yt_trump_negative <- yt_word |> 
+  inner_join(nrc_negative) |> 
+  count(word, sort = TRUE)
+
+yt_trump_negative$type <- c("negative")
+
+# trump_fear
+yt_trump_fear <- yt_word |> 
+  inner_join(nrc_fear) |> 
+  count(word, sort = TRUE)
+
+yt_trump_fear$type <- c("fear")
+
+# trump_anger
+yt_trump_anger <- yt_word |> 
+  inner_join(nrc_anger) |> 
+  count(word, sort = TRUE)
+
+yt_trump_anger$type <- c("anger")
+
+# trump_trust
+yt_trump_trust <- yt_word |> 
+  inner_join(nrc_trust) |> 
+  count(word, sort = TRUE)
+yt_trump_trust$type = c("trust")
+
+# trump_saeness
+yt_trump_sadness <- yt_word |> 
+  inner_join(nrc_sadness) |> 
+  count(word, sort = TRUE)
+
+yt_trump_sadness$type <- c("sadness")
+
+yt_trump <- rbind(yt_trump_joy, yt_trump_negative, yt_trump_negative, yt_trump_anger, yt_trump_trust, yt_trump_sadness)
+```
+
+### graph
+
+```{r}
+library(ggplot2)
+
+unique(yt_trump$type)
+
+yt_trump |> 
+  group_by(type) |> 
+  ungroup() |> 
+ggplot(aes(word, n, fill = type)) +
+  geom_col(show.legend = TRUE) +
+  facet_wrap(~type,nrow = 3, scales = "free_x")
+
+```
+##Term frequency 
+```{r}
+yt_words <- yt_word |> 
+  count(user, word, sort = TRUE) #we count word frequencies keeping a column for the user where the word comes from
+yt_words
+```
+
+How many words for each user are on each comment? 
+
+```{r}
+total_words <- yt_words %>% 
+  #group by user to sum all the totals in the n column of yt_words
+  group_by(user) %>% 
+  #created a column called total with the total of words by user
+  summarize(total = sum(n))
+total_words
+```
+
+```{r}
+#we add a column with this total number to the dataframe bookwords
+#we use left join because we need the join to keep all rows in book_words, regardless of repeating rows
+words <- yt_words %>%
+  left_join(total_words, by = "user")
+  
+words <- words |> 
+  mutate(frequency = n / total)
+words
+```
+
+```{r}
+library(ggplot2)
+
+#we calculate the distribution and put it in the x axis, filling by book
+words |>  ggplot(aes(frequency, fill = user)) +
+  geom_histogram(show.legend = TRUE) +
+  facet_wrap(~user, ncol = 2, scales = "free_y")
+
+```
+SENTIMEN PLOT OF ALL COMMENTS ON YOUTUBE
+```{r}
+sentiments <- yt_trump %>%
+  inner_join(get_sentiments("bing"), by = "word") %>%
+  rename(count = n)
+sentiments
+```
+```{r}
+library(ggplot2)
+
+sentiments %>%
+  #we weight by the count column: a term and its sentiment associated multiplied by count
+  count(sentiment, word, wt = count) %>%
+  ungroup() %>%
+  #we filter by words appearing more than 2 times in the comments
+  filter(n >= 2) %>%
+  #create a new column called n that is equal to the count, but with the sign flipped
+  mutate(n = ifelse(sentiment == "negative", -n, n)) %>%
+  #reorder for descending order of bars
+  mutate(term = reorder(word, n)) %>%
+  #plot settings
+  ggplot(aes(n, term, fill = sentiment)) +
+  geom_col() +
+  labs(x = "Number of mentions (contribution to sentiment)", y = NULL)
+```
+
+As visualization above, it becomes evident that the lexicon associated with Trump leans more towards negative sentiments than positive ones. The prevalence of words expressing unfavorable sentiments surpasses those conveying a positive tone in discussions related to Trump on the YouTube comments for the CNN channel and playlist about "Politics". 
 
 # SCRAPPING REDDIT
 
