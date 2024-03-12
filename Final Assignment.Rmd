@@ -683,6 +683,3 @@ freq_by_rank %>%
   geom_line(linewidth = 1.1, alpha = 0.8, show.legend = TRUE) +
   theme_minimal()
 ```
-
-=======
->>>>>>> 91b4333 (newv)
