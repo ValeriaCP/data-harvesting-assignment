@@ -617,6 +617,7 @@ ggplot(aes(word, n, fill = type)) +
 print(sentiment_nrc)
 ```
 
+<<<<<<< HEAD
 ### Term frequency analysis
 
 ```{r}
@@ -682,4 +683,3 @@ freq_by_rank %>%
   geom_line(linewidth = 1.1, alpha = 0.8, show.legend = TRUE) +
   theme_minimal()
 ```
-
