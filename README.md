@@ -375,7 +375,7 @@ As visualization above, it becomes evident that the lexicon associated with Trum
 
 ### Get a token from Reddit API
 
-You need to make reddit app to get the client_id and client_secret./n
+You need to make reddit app to get the client_id and client_secret. <br/>
 You can access website to make the reddit app here: [Reddit_APP](https://www.reddit.com/prefs/apps)
 
 ```{r}
