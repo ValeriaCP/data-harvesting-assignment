@@ -373,6 +373,28 @@ As visualization above, it becomes evident that the lexicon associated with Trum
 
 ## Reddit REST API  data extraction process
 
+### Get a token from Reddit API
+
+You need to make reddit app to get the client_id and client_secret.
+You can access website to make the reddit app here: [Reddi_APP](https://www.reddit.com/prefs/apps)
+
+```{r}
+client_id = "your client id"
+client_secret = "your client secret"
+
+response <- POST(
+  url = "https://www.reddit.com/api/v1/access_token",
+  body = list(
+    grant_type = "client_credentials"),
+  encode = "form",
+  authenticate(client_id, client_secret)
+  )
+
+access_token <- content(response)$access_token
+print(access_token)
+```
+
+
 ### Authentification Process and httr::GET request
 
 Step 1. Set the **url** with endpoint and save some **query parameters** into a variable for GET request.
