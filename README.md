@@ -1,7 +1,7 @@
-# data-harvesting-API-project
+# Data Harvesting API Project
 Data harvesting assignment repository
 
-### Libraries that we have used to get the REST API from Youtube and Reddit
+## Libraries that we have used to get the REST API from Youtube and Reddit
 ```{r}
 library(httr)
 library(httr2)
@@ -11,13 +11,13 @@ library(tidyr)
 library(tibble)
 ```
 
-### Libraries that we have used to do the text mining
+## Libraries that we have used to do the text mining
 ```{r}
 library(tidytext)
 library(ggplot2)
 ```
 
-### env. file and the method we can call it to R
+## env. file and the method we can call it to R
 First of all, we saved API KEY and access token in the .env file.
 Next, we saved it in .gitignore file.
 Then, we erased the .env file and pushed it into github repository.
@@ -33,6 +33,7 @@ API_KEY <- Sys.getenv("API_KEY")
 
 
 ## Reddit REST API  data extraction process
+
 ### Authentification Process and httr::GET request
 
 Step 1. Set the **url** with endpoint and save some **query parameters** into a variable for GET request.
@@ -94,6 +95,7 @@ print(trump)
 ```
 
 ### Text mining
+
 ### NRC analysis
 
 We have used **"nrc"** sentimental analysis tool.
@@ -197,16 +199,68 @@ print(sentiment_nrc)
 
 ### Term frequency analysis
 
+Step 1. Calculate **total number of comments in each sentimental types**
+
+We grouped by types to sum all the totals in the n column of trump_nrc and create total column with the total of words by type
+
 ```{r}
-total_comment_words <- trump_nrc %>% 
-  #we group by types to sum all the totals in the n column of comment_words
-  group_by(type) %>% 
+total_comment_words <- trump_nrc |> 
+  #we group by types to sum all the totals in the n column of trump_nrc
+  group_by(type) |> 
   #we create a column called total with the total of words by type
   summarize(total = sum(n))
 
 total_comment_words
 ```
+Step 2. Left_join the total_comment_words into trump_nrc to caluclate the percdentage of each words from the type
 
+```{r}
+comment_words <- left_join(trump_nrc, total_comment_words)
+comment_words
+
+comment_words <- comment_words %>%
+  #we add a column for term_frequency in each type
+  mutate(term_frequency = n/total)
+
+comment_words
+```
+
+Step 3. Visualization
+
+```{r}
+library(ggplot2)
+
+ggplot(comment_words, aes(term_frequency, fill = type)) +
+  #we create the bars histogram
+  geom_histogram(show.legend = TRUE) +
+  #we set the limit for the term frequency in the x axis
+  xlim(NA, 0.04) +
+  #plot settings
+  facet_wrap(~type, ncol = 2, scales = "free_y")
+```
+Step 4. Rank each comment_words by type
+
+```{r}
+freq_by_rank <- comment_words %>% 
+  group_by(type) %>% 
+  #we create the column for the rank with row_number by type
+  mutate(rank = row_number()) %>%
+  ungroup()
+
+freq_by_rank
+
+freq_by_rank |> group_by(type) |> filter(rank == 1 | rank == 2)
+```
+
+Step 5. Visualization
+
+```{r}
+freq_by_rank %>% 
+  ggplot(aes(rank, term_frequency, color = type)) + 
+  #plot settings
+  geom_line(linewidth = 1.1, alpha = 0.8, show.legend = TRUE) +
+  theme_minimal()
+```
 
 
 
