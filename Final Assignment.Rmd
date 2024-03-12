@@ -10,12 +10,12 @@ output:
 ##Libraries used 
  
 ```{r}
-#install.packages("httr2")
-#install.packages("httr")
-#install.packages("jsonlite")
-#install.packages("tibble")
-#install.packages("tidyr")
-#install.packages("dotenv")
+# install.packages("httr2")
+# install.packages("httr")
+# install.packages("jsonlite")
+# install.packages("tibble")
+# install.packages("tidyr")
+# install.packages("dotenv")
 
 library(httr2)
 library(httr)
@@ -267,8 +267,8 @@ total_words
 ```
 
 ```{r}
-#we add a column with this total number to the dataframe bookwords
-#we use left join because we need the join to keep all rows in book_words, regardless of repeating rows
+#we add a column with this total number to the dataframe yt_words
+#we use left join because we need the join to keep all rows in yt_words, regardless of repeating rows
 words <- yt_words %>%
   left_join(total_words, by = "user")
   
@@ -280,7 +280,7 @@ words
 ```{r}
 library(ggplot2)
 
-#we calculate the distribution and put it in the x axis, filling by book
+#we calculate the distribution and put it in the x axis, filling by user
 words |>  ggplot(aes(frequency, fill = user)) +
   geom_histogram(show.legend = TRUE) +
   facet_wrap(~user, ncol = 2, scales = "free_y")
@@ -545,7 +545,9 @@ nrc_anger <- get_sentiments("nrc") |>
 # trust
 nrc_trust <- get_sentiments("nrc") |> 
   filter(sentiment == "trust")
+```
 
+```{R}
 # unnesting the word
 word = trump |> unnest_tokens(word, text)
 print(word)
@@ -555,7 +557,7 @@ print(word)
 ```{R}
 # trump_joy
 trump_positive <- word |> 
-    #we combine both lists, NRC and Emma's words
+    #we combine both lists, NRC and comments words
     inner_join(nrc_positive) %>%
     #we count the mentions of each word to find the most frequent
     count(word, sort = TRUE)
@@ -619,9 +621,9 @@ print(sentiment_nrc)
 
 ```{r}
 total_comment_words <- trump_nrc %>% 
-  #we group by books to sum all the totals in the n column of book_words
+  #we group by types to sum all the totals in the n column of comment_words
   group_by(type) %>% 
-  #we create a column called total with the total of words by book
+  #we create a column called total with the total of words by type
   summarize(total = sum(n))
 
 total_comment_words
@@ -631,9 +633,10 @@ total_comment_words
 comment_words <- left_join(trump_nrc, total_comment_words)
 comment_words
 ```
+
 ```{r}
 comment_words <- comment_words %>%
-  #we add a column for term_frequency in each novel
+  #we add a column for term_frequency in each type
   mutate(term_frequency = n/total)
 
 comment_words
@@ -642,7 +645,7 @@ comment_words
 ```{r}
 library(ggplot2)
 
-#we calculate the distribution and put it in the x axis, filling by book
+#we calculate the distribution and put it in the x axis, filling by type
 ggplot(comment_words, aes(term_frequency)) +
   #we create the bars histogram
   geom_histogram(show.legend = TRUE) +
@@ -663,7 +666,7 @@ ggplot(comment_words, aes(term_frequency, fill = type)) +
 ```{r}
 freq_by_rank <- comment_words %>% 
   group_by(type) %>% 
-  #we create the column for the rank with row_number by book
+  #we create the column for the rank with row_number by type
   mutate(rank = row_number()) %>%
   ungroup()
 
