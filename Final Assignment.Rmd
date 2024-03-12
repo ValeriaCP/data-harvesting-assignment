@@ -617,6 +617,7 @@ ggplot(aes(word, n, fill = type)) +
 print(sentiment_nrc)
 ```
 
+<<<<<<< HEAD
 ### Term frequency analysis
 
 ```{r}
@@ -683,3 +684,5 @@ freq_by_rank %>%
   theme_minimal()
 ```
 
+=======
+>>>>>>> 91b4333 (newv)
