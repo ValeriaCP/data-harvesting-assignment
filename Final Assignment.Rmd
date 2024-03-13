@@ -170,7 +170,7 @@ yt_word <- comments_tibble |>
   anti_join(stop_words) 
 ```
 
-##Sentiment Analysis 
+## Sentiment Analysis 
 
 ```{r}
 # trump_positive
@@ -211,7 +211,7 @@ Merge all words with count
 yt_trump <- rbind(yt_trump_positive, yt_trump_negative,yt_trump_anger, yt_trump_trust)
 ```
 
-##Visualize the result
+## Visualize the result
 ```{r}
 library(ggplot2)
 
@@ -227,12 +227,20 @@ yt_trump_plot <- yt_trump |>
 print(yt_trump_plot)
 ```
 
-##Term frequency 
+
+## Term frequency 
+```{r}
+yt_words <- yt_trump |> 
+  count(type, word, sort = TRUE) 
+#we count word frequencies keeping a column for the user where the word comes from
+yt_words
+```
 
 ```{r}
 total_words <- yt_trump |> 
   group_by(type) |> 
   summarize(total = sum(n))
+
 total_words
 ```
 
@@ -242,6 +250,7 @@ words <- yt_trump |>
   
 words <- words |> 
   mutate(frequency = n / total)
+
 words
 ```
 
@@ -328,6 +337,7 @@ library(httr2)
 library(jsonlite)
 library(dplyr)
 library(scrapex)
+library(tidyr)
 ```
 
 ### OAuth 2.0
@@ -547,7 +557,6 @@ nrc_trust <- get_sentiments("nrc") |>
 # unnesting the word
 word = trump |> unnest_tokens(word, text)
 print(word)
-
 ```
 
 ```{R}
@@ -679,19 +688,54 @@ freq_by_rank %>%
   theme_minimal()
 ```
 
-#COMPARING YOUTUBE AND REDDIT COMMENTS RELATED TO TRUMP 
+# COMPARING YOUTUBE AND REDDIT COMMENTS RELATED TO TRUMP 
 
-###Youtube
+### Youtube
 ```{r}
 tidy_yt <- yt_word |> 
   count(word, sort = TRUE)
+
+tidy_yt
 ```
 
-###Reddit 
+### Reddit 
 ```{r}
 tidy_reddit <- word |> 
   anti_join(stop_words) |> 
   count(word, sort = TRUE)
+
+tidy_reddit
+```
+
+```{r}
+words_yt <- words |> # YouTube
+  mutate(platform = c("YouTube"))
+
+words_yt <- as.data.frame(words_yt) 
+words_yt <- words_yt |> rename("term_frequency" = "frequency")
+  
+comment_words_rd <- comment_words |> # Reddit 
+  mutate(platform = c("Reddit"))
+
+comment_words_rd
+
+combined_yt_rd <- rbind(words_yt, comment_words_rd)
+combined_yt_rd 
+```
+
+```{r}
+library(ggplot2)
+
+combined_yt_rd %>%
+  filter(n >= 90) %>%
+  #create a new column called n that is equal to the count, but with the sign flipped
+  mutate(n = ifelse(sentiment == "negative", -n, n)) %>%
+  #reorder for descending order of bars
+  mutate(term = reorder(word, n)) %>%
+  #plot settings
+  ggplot(aes(n, term, fill = sentiment)) +
+  geom_col() +
+  labs(x = "Number of mentions (contribution to sentiment)", y = NULL)
 ```
 
 
@@ -705,15 +749,15 @@ library(stringr)
 freq <-bind_rows(
   mutate(tidy_yt, platform = "YouTube"),
   mutate(tidy_reddit, platform = "Reddit")
-) %>% 
+) |>  
   # Regex to identify words and not _words_
-  mutate(word = str_extract(word, "[a-z']+")) %>%
+  mutate(word = str_extract(word, "[a-z']+")) |> 
   # Count the number of mentions of a word for an author
-  count(platform, word) %>%
+  count(platform, word) |> 
   # Calculate proportion over the total sum of words
-  group_by(platform) %>%
-  mutate(proportion = n / sum(n)) %>% 
-  select(-n) %>% 
+  group_by(platform) |> 
+  mutate(proportion = n / sum(n)) |>  
+  select(-n) |> 
   # Reshape the dataframe
   # Pivot wider means: more columns, less rows
   pivot_wider(names_from = platform, values_from = proportion) 
@@ -744,9 +788,10 @@ Libraries needed for this plot
 library(RColorBrewer)
 library(wordcloud)
 library(reshape2)
+library(wordcloud2)
 ```
 
-
+### WordCloud
 ```{r}
 freq %>%
   #we get sentiments
@@ -757,6 +802,15 @@ freq %>%
   acast(word ~ sentiment, value.var = "n", fill = 0) %>%
   #we paint two wordclouds in one using two different colors
   comparison.cloud(colors = c("blue", "green"), max.words = 50, scale = c(3, 0.5))
-
+```
+### WordCloud2
+```{r}
+freq |> 
+  inner_join(get_sentiments("bing")) |> 
+  count(word, c(sentiment, Reddit, YouTube), sort = TRUE) |> 
+wordcloud2(color = "random-dark",
+            fontWeight = 550,
+            size = 2,
+            widgetsize = c(900, 500))
 ```
 
