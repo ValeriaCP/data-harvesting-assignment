@@ -227,6 +227,7 @@ yt_trump_plot <- yt_trump |>
 print(yt_trump_plot)
 ```
 
+
 ## Term frequency 
 ```{r}
 yt_words <- yt_trump |> 
@@ -236,7 +237,7 @@ yt_words
 ```
 
 ```{r}
-total_words <- yt_words |> 
+total_words <- yt_trump |> 
   group_by(type) |> 
   summarize(total = sum(n))
 
@@ -244,7 +245,7 @@ total_words
 ```
 
 ```{r}
-words <- yt_words |> 
+words <- yt_trump |> 
   left_join(total_words, by = "type")
   
 words <- words |> 
