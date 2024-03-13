@@ -24,17 +24,6 @@ library(tibble)
 library(tidyr)
 library(dotenv)
 ```
-To be able to scrap information from the YouTube API we have to have an API KEY, this is sensitive information that we can not share with everyone, the steps to get a YouTube API are the following: 
-
-1. First create a Google account to access the Google API console and be able to request an API key. 
-2. Second step is to create a project on the Google Developers Console by clicking on the project dropdown that is next to the Google cloud logo. 
-3. After creating a new project, go to the left side bar and select "APIs & Services" and then on then clic on the "Enable APIS and Services" and search for the  "YouTube Data API v3", select it and enable it. 
-4. After enabling the API, click on the "Create Credentials" button and choose the API key option.
-5. Finally, once created, the API key will be displayed on the screen, ensure to copy the API key and keep it secure.
-
-Once we have the API KEY, we can use it on R but as mentioned above when having a API KEY we should be careful to handle it due to several security and privacy concerns API keys are credentials to access specific resources, therefore we should avoid to give this access to malicious actors to manipulate or retrieve sensitive information. 
-
-So, the next step is to create a ".env" file to keep sensitive information in here and the exposure of this sensitive information to unauthorized persons.
 
 ```{r}
 load_dot_env(file = ".env") #this function is to load environment variables from a dotenv file, where the file is named .env
@@ -70,13 +59,10 @@ get_video_ids <- function() {
   response_channel <- GET(url_channel)
   channel_info <- fromJSON(content(response_channel, "text"))
 
-  # Extract the "uploads" playlist ID for CNN's channel
   uploads_playlist_id <- channel_info$items$contentDetails$relatedPlaylists$uploads
 
-  # Construct the URL for retrieving videos in the "uploads" playlist
   url_videos <- paste0('https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=', uploads_playlist_id, '&maxResults=100&key=', API_KEY)
 
-  # Make the API request to get the videos
   response_videos <- GET(url_videos)
   videos_info <- fromJSON(content(response_videos, "text"))
 
@@ -88,62 +74,60 @@ get_video_ids <- function() {
 
 # Retrieve video IDs from the "uploads" playlist
 video_ids <- get_video_ids()
-
-# Function to get comments for a specific video
-get_comments_for_video <- function(video_id) {
-  # Construct the URL for retrieving comments for the video
-  url_comments <- paste0('https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=', video_id, '&key=', API_KEY)
-
-  # Make the API request to get the comments
-  response_comments <- GET(url_comments)
-  comments_info <- fromJSON(content(response_comments, "text"))
-
-  # Print or process the comments data as needed
-  cat("Comments for Video ID:", video_id, "\n")
-  print(comments_info)
-  cat("\n")
-}
-
-# Retrieve comments for each video in the playlist
-comments <- for (video_id in video_ids) {
-  get_comments_for_video(video_id)
-}
 ```
 
 ```{r}
-library(tidyr)
 library(tibble)
-library(dplyr)
-snippet.topLevelComment.snippet.textDisplay
+library(httr)
+library(jsonlite)
 
-#Extract relevant information from comments_info
-comments_df <- tibble(
-  kind = comments_info$kind,
-  etag = comments_info$etag,
-  nextPageToken = comments_info$nextPageToken,
-  totalResults = comments_info$pageInfo$totalResults,
-  resultsPerPage = comments_info$pageInfo$resultsPerPage,
-  items = comments_info$items
-)
-comments_df <- unnest(comments_df, cols = c(items), names_sep = "_")
-comments_df <- unnest(comments_df, cols = c(items_snippet), names_sep = "_")
-comments_df <- unnest(comments_df, cols = c(items_snippet_topLevelComment), names_sep = "_")
-comments_df <- unnest(comments_df, cols = c(items_snippet_topLevelComment_snippet), names_sep = "_")
-comments_df <- unnest(comments_df, cols = c(items_snippet_topLevelComment_snippet_authorChannelId), names_sep = "_")
-snippet_columns <- grep("^snippet\\.topLevelComment\\.", colnames(comments_df), value = TRUE)
+get_comments_for_video <- function(video_id) {
+  max_results <- 100
+  keyword <- "Trump"
+  next_page_token <- NULL
+  all_comments <- character(0)
 
-# Unnest the identified snippet columns
-comments_df <- unnest_longer(comments_df, col = all_of(snippet_columns))
-print(comments_df) #we have all the info on a df now. 
-print(comments_df$items_snippet_topLevelComment_snippet_textOriginal) #print the comment column
+  repeat {
+    url_comments <- paste0('https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=', video_id, '&maxResults=', max_results, '&key=', API_KEY)
 
-#Selected the columns that will be used for the sentiment analysis 
-comments_df <- comments_df |> select(items_snippet_topLevelComment_snippet_authorDisplayName, items_snippet_topLevelComment_snippet_textOriginal,kind) |>
-  rename( #renamed columns for a better undestanding
-    user = items_snippet_topLevelComment_snippet_authorDisplayName,
-    comment = items_snippet_topLevelComment_snippet_textOriginal,
-    kind = kind
-  )
+    if (!is.null(next_page_token)) {
+      url_comments <- paste0(url_comments, '&pageToken=', next_page_token)
+    }
+
+    response_comments <- GET(url_comments)
+    comments_info <- fromJSON(content(response_comments, "text"))
+
+    current_comments <- comments_info$items$snippet$topLevelComment$snippet$textDisplay
+
+    filtered_comments <- grep(keyword, current_comments, ignore.case = TRUE, value = TRUE)
+
+    all_comments <- c(all_comments, filtered_comments)
+
+    if (is.null(comments_info$nextPageToken)) {
+      break
+    } else {
+      next_page_token <- comments_info$nextPageToken
+    }
+  }
+
+  # Return the list of filtered comments
+  return(all_comments)
+}
+
+# Example: Retrieve and filter comments for each video in the playlist
+all_video_comments <- list()
+
+for (video_id in video_ids) {
+  comments_for_video <- get_comments_for_video(video_id)
+  all_video_comments[[video_id]] <- comments_for_video
+}
+
+# Create a single tibble for all comments
+comments_tibble <- tibble(comments = unlist(all_video_comments))
+
+# Now, 'comments_tibble' contains a tibble with a column named 'comments'
+print(comments_tibble)
+
 ```
 
 ### Text_mining
@@ -151,21 +135,20 @@ comments_df <- comments_df |> select(items_snippet_topLevelComment_snippet_autho
 ```{r}
 library(tidytext)
 library(dplyr)
+```
 
-get_sentiments("afinn")
-get_sentiments("bing")
+```{r}
 get_sentiments("nrc")
+```
 
-# joy 
-nrc_joy <- get_sentiments("nrc") %>%  
-  filter(sentiment == "joy")
+```{r}
+# positive
+nrc_positive <- get_sentiments("nrc") %>% 
+  filter(sentiment == "positive")
 
 # negative
 nrc_negative <- get_sentiments("nrc") |> 
   filter(sentiment == "negative")
-
-# fear
-nrc_fear <- get_sentiments("nrc") |> filter(sentiment == "fear")
 
 # anger
 nrc_anger <- get_sentiments("nrc") |> 
@@ -174,27 +157,29 @@ nrc_anger <- get_sentiments("nrc") |>
 # trust
 nrc_trust <- get_sentiments("nrc") |> 
   filter(sentiment == "trust")
+```
 
-# sadness
-nrc_sadness <- get_sentiments("nrc") |> 
-  filter(sentiment == "sadness")
+```{r}
+stop_words
+```
 
-# unnesting the word
-
-yt_word <- comments_df |>
-  unnest_tokens(word, comment) |> 
-  distinct(user,word)
+```{r}
+#unnesting the words
+yt_word <- comments_tibble |> 
+  unnest_tokens(word, comments) |> 
+  anti_join(stop_words) 
 ```
 
 ##Sentiment Analysis 
 
 ```{r}
-# trump_joy
-yt_trump_joy <- yt_word |> 
-    inner_join(nrc_joy) |> 
+# trump_positive
+yt_trump_positive <- yt_word |> 
+    inner_join(nrc_positive) |> 
     count(word, sort = TRUE)
 
-yt_trump_joy$type <- c("joy")
+yt_trump_positive$type <- c("positive")
+print(yt_trump_positive)
 
 # trump_negative
 yt_trump_negative <- yt_word |> 
@@ -202,13 +187,7 @@ yt_trump_negative <- yt_word |>
   count(word, sort = TRUE)
 
 yt_trump_negative$type <- c("negative")
-
-# trump_fear
-yt_trump_fear <- yt_word |> 
-  inner_join(nrc_fear) |> 
-  count(word, sort = TRUE)
-
-yt_trump_fear$type <- c("fear")
+print(yt_trump_negative)
 
 # trump_anger
 yt_trump_anger <- yt_word |> 
@@ -216,77 +195,105 @@ yt_trump_anger <- yt_word |>
   count(word, sort = TRUE)
 
 yt_trump_anger$type <- c("anger")
+print(yt_trump_anger)
 
 # trump_trust
 yt_trump_trust <- yt_word |> 
   inner_join(nrc_trust) |> 
   count(word, sort = TRUE)
 yt_trump_trust$type = c("trust")
-
-# trump_saeness
-yt_trump_sadness <- yt_word |> 
-  inner_join(nrc_sadness) |> 
-  count(word, sort = TRUE)
-
-yt_trump_sadness$type <- c("sadness")
-
-yt_trump <- rbind(yt_trump_joy, yt_trump_negative, yt_trump_negative, yt_trump_anger, yt_trump_trust, yt_trump_sadness)
+print(yt_trump_trust)
 ```
 
-### graph
+Merge all words with count
 
+```{r}
+yt_trump <- rbind(yt_trump_positive, yt_trump_negative,yt_trump_anger, yt_trump_trust)
+```
+
+##Visualize the result
 ```{r}
 library(ggplot2)
 
-unique(yt_trump$type)
-
-yt_trump |> 
+yt_trump_plot <- yt_trump |> 
   group_by(type) |> 
-  ungroup() |> 
-ggplot(aes(word, n, fill = type)) +
+  top_n(8, wt = n) |>  #selected the top 8 more repeated words for each sentiment 
+  ggplot(aes(word, n, fill = type)) +
   geom_col(show.legend = TRUE) +
-  facet_wrap(~type,nrow = 3, scales = "free_x")
+  facet_wrap(~type, nrow = 3, scales = "free_x") +
+  theme(axis.text.x = element_text(size = 5.5))
 
+
+print(yt_trump_plot)
 ```
+
 ##Term frequency 
 ```{r}
-yt_words <- yt_word |> 
-  count(user, word, sort = TRUE) #we count word frequencies keeping a column for the user where the word comes from
+yt_words <- yt_trump |> 
+  count(type, word, sort = TRUE) #we count word frequencies keeping a column for the user where the word comes from
 yt_words
 ```
 
-How many words for each user are on each comment? 
-
 ```{r}
 total_words <- yt_words %>% 
-  #group by user to sum all the totals in the n column of yt_words
-  group_by(user) %>% 
+  #group by type to sum all the totals in the n column of yt_words
+  group_by(type) %>% 
   #created a column called total with the total of words by user
   summarize(total = sum(n))
 total_words
 ```
 
 ```{r}
-#we add a column with this total number to the dataframe yt_words
-#we use left join because we need the join to keep all rows in yt_words, regardless of repeating rows
 words <- yt_words %>%
-  left_join(total_words, by = "user")
+  left_join(total_words, by = "type")
   
 words <- words |> 
   mutate(frequency = n / total)
 words
 ```
-
 ```{r}
 library(ggplot2)
 
-#we calculate the distribution and put it in the x axis, filling by user
-words |>  ggplot(aes(frequency, fill = user)) +
+#we calculate the distribution and put it in the x axis, filling by type
+ggplot(words, aes(frequency)) +
+  #we create the bars histogram
   geom_histogram(show.legend = TRUE) +
-  facet_wrap(~user, ncol = 2, scales = "free_y")
-
+  #we set the limit for the term frequency in the x axis
+  xlim(NA, 0.03)
 ```
-SENTIMEN PLOT OF ALL COMMENTS ON YOUTUBE
+
+```{r}
+ggplot(words, aes(frequency, fill = type)) +
+  #we create the bars histogram
+  geom_histogram(show.legend = TRUE) +
+  #we set the limit for the term frequency in the x axis
+  xlim(NA, 0.04) +
+  #plot settings
+  facet_wrap(~type, ncol = 2, scales = "free_y")
+```
+
+```{r}
+freq_rank <- words %>% 
+  group_by(type) %>% 
+  #we create the column for the rank with row_number by type
+  mutate(rank = row_number()) %>%
+  ungroup()
+
+freq_rank
+
+freq_rank |> group_by(type) |> filter(rank == 1 | rank == 2)
+```
+
+```{r}
+freq_rank %>% 
+  ggplot(aes(rank, frequency, color = type)) + 
+  #plot settings
+  geom_line(linewidth = 1.1, alpha = 0.8, show.legend = TRUE) +
+  theme_minimal()
+```
+
+Sentiment plot of all comments on YouTube CNN channel 
+
 ```{r}
 sentiments <- yt_trump %>%
   inner_join(get_sentiments("bing"), by = "word") %>%
@@ -300,8 +307,8 @@ sentiments %>%
   #we weight by the count column: a term and its sentiment associated multiplied by count
   count(sentiment, word, wt = count) %>%
   ungroup() %>%
-  #we filter by words appearing more than 2 times in the comments
-  filter(n >= 2) %>%
+  #we filter by words appearing more than 90 times in the comments
+  filter(n >= 90) %>%
   #create a new column called n that is equal to the count, but with the sign flipped
   mutate(n = ifelse(sentiment == "negative", -n, n)) %>%
   #reorder for descending order of bars
@@ -313,8 +320,6 @@ sentiments %>%
 ```
 
 As visualization above, it becomes evident that the lexicon associated with Trump leans more towards negative sentiments than positive ones. The prevalence of words expressing unfavorable sentiments surpasses those conveying a positive tone in discussions related to Trump on the YouTube comments for the CNN channel and playlist about "Politics". 
-
-
 
 # SCRAPPING REDDIT
 
@@ -617,7 +622,6 @@ ggplot(aes(word, n, fill = type)) +
 print(sentiment_nrc)
 ```
 
-<<<<<<< HEAD
 ### Term frequency analysis
 
 ```{r}
