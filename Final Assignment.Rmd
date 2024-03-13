@@ -114,7 +114,7 @@ get_comments_for_video <- function(video_id) {
   return(all_comments)
 }
 
-# Example: Retrieve and filter comments for each video in the playlist
+#Retrieve and filter comments for each video in the playlist
 all_video_comments <- list()
 
 for (video_id in video_ids) {
@@ -235,16 +235,14 @@ yt_words
 ```
 
 ```{r}
-total_words <- yt_words %>% 
-  #group by type to sum all the totals in the n column of yt_words
-  group_by(type) %>% 
-  #created a column called total with the total of words by user
+total_words <- yt_words |> 
+  group_by(type) |> 
   summarize(total = sum(n))
 total_words
 ```
 
 ```{r}
-words <- yt_words %>%
+words <- yt_words |> 
   left_join(total_words, by = "type")
   
 words <- words |> 
@@ -300,6 +298,7 @@ sentiments <- yt_trump %>%
   rename(count = n)
 sentiments
 ```
+
 ```{r}
 library(ggplot2)
 
@@ -328,7 +327,6 @@ As visualization above, it becomes evident that the lexicon associated with Trum
 ### Libraries that we have used
 
 ```{r}
-rm(list = ls())
 library(httr)
 library(httr2)
 library(jsonlite)
@@ -524,9 +522,6 @@ print(trump)
 
 ```{r}
 library(tidytext)
-
-get_sentiments("afinn")
-get_sentiments("bing")
 nrc = get_sentiments("nrc")
 ```
 
@@ -687,3 +682,85 @@ freq_by_rank %>%
   geom_line(linewidth = 1.1, alpha = 0.8, show.legend = TRUE) +
   theme_minimal()
 ```
+
+#COMPARING YOUTUBE AND REDDIT COMMENTS RELATED TO TRUMP 
+
+###Youtube
+```{r}
+tidy_yt <- yt_word |> 
+  count(word, sort = TRUE)
+```
+
+###Reddit 
+```{r}
+tidy_reddit <- word |> 
+  anti_join(stop_words) |> 
+  count(word, sort = TRUE)
+```
+
+
+```{r}
+#install.packages("tidyr")
+#install.packages("stringr")
+library(tidyr)
+library(stringr)
+
+# Create a column called author for each dataframe
+freq <-bind_rows(
+  mutate(tidy_yt, platform = "YouTube"),
+  mutate(tidy_reddit, platform = "Reddit")
+) %>% 
+  # Regex to identify words and not _words_
+  mutate(word = str_extract(word, "[a-z']+")) %>%
+  # Count the number of mentions of a word for an author
+  count(platform, word) %>%
+  # Calculate proportion over the total sum of words
+  group_by(platform) %>%
+  mutate(proportion = n / sum(n)) %>% 
+  select(-n) %>% 
+  # Reshape the dataframe
+  # Pivot wider means: more columns, less rows
+  pivot_wider(names_from = platform, values_from = proportion) 
+
+freq
+
+```
+###Visualization 
+```{r}
+library(ggplot2)
+library(scales)  # Make sure you have scales loaded for percent_format()
+
+ggplot(freq, aes(x = Reddit, y = YouTube, fill = word)) +
+  geom_abline(intercept = 0, slope = 1, color = "gray40", linetype = 2) +
+  geom_jitter(alpha = 0.1, size = 0.5, width = 0.3, height = 0.3) +
+  geom_text(aes(label = word), check_overlap = TRUE, vjust = 0.5) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  theme(legend.position = "none") +
+  labs(y = "YouTube", x = "Reddit")
+
+```
+###Word cloud 
+Libraries needed for this plot 
+
+```{r}
+#install.packages("wordcloud")
+library(RColorBrewer)
+library(wordcloud)
+library(reshape2)
+```
+
+
+```{r}
+freq %>%
+  #we get sentiments
+  inner_join(get_sentiments("bing")) %>%
+  #we count word mentions
+  count(word, sentiment, sort = TRUE) %>%
+  #we establish criteria for size
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  #we paint two wordclouds in one using two different colors
+  comparison.cloud(colors = c("blue", "green"), max.words = 50, scale = c(3, 0.5))
+
+```
+
