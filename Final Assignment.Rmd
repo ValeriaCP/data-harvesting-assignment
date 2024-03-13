@@ -230,13 +230,6 @@ print(yt_trump_plot)
 
 ## Term frequency 
 ```{r}
-yt_words <- yt_trump |> 
-  count(type, word, sort = TRUE) 
-#we count word frequencies keeping a column for the user where the word comes from
-yt_words
-```
-
-```{r}
 total_words <- yt_trump |> 
   group_by(type) |> 
   summarize(total = sum(n))
@@ -262,7 +255,7 @@ ggplot(words, aes(frequency)) +
   #we create the bars histogram
   geom_histogram(show.legend = TRUE) +
   #we set the limit for the term frequency in the x axis
-  xlim(NA, 0.03)
+  xlim(NA, 0.015)
 ```
 
 ```{r}
@@ -270,7 +263,7 @@ ggplot(words, aes(frequency, fill = type)) +
   #we create the bars histogram
   geom_histogram(show.legend = TRUE) +
   #we set the limit for the term frequency in the x axis
-  xlim(NA, 0.04) +
+  xlim(NA, 0.015) +
   #plot settings
   facet_wrap(~type, ncol = 2, scales = "free_y")
 ```
@@ -692,8 +685,7 @@ freq_by_rank %>%
 
 ### Youtube
 ```{r}
-tidy_yt <- yt_word |> 
-  count(word, sort = TRUE)
+tidy_yt <- words 
 
 tidy_yt
 ```
@@ -713,29 +705,33 @@ words_yt <- words |> # YouTube
 
 words_yt <- as.data.frame(words_yt) 
 words_yt <- words_yt |> rename("term_frequency" = "frequency")
+words_yt <- words_yt |> filter(word != "vote")
   
 comment_words_rd <- comment_words |> # Reddit 
   mutate(platform = c("Reddit"))
 
-comment_words_rd
+comment_words_rd <- comment_words_rd |> filter(word != "influence")
 
 combined_yt_rd <- rbind(words_yt, comment_words_rd)
-combined_yt_rd 
+combined_yt_rd |> group_by(platform) |>  arrange(desc(term_frequency))
+
 ```
 
 ```{r}
 library(ggplot2)
 
-combined_yt_rd %>%
-  filter(n >= 90) %>%
-  #create a new column called n that is equal to the count, but with the sign flipped
-  mutate(n = ifelse(sentiment == "negative", -n, n)) %>%
+combined_yt_rd |> 
+  filter(type == "positive" | type == "negative") |> 
+  filter(term_frequency > 0.016) |> 
   #reorder for descending order of bars
-  mutate(term = reorder(word, n)) %>%
+  mutate(term = reorder(word, term_frequency)) %>%
   #plot settings
-  ggplot(aes(n, term, fill = sentiment)) +
+  ggplot(aes(term_frequency, word, fill = type)) +
   geom_col() +
-  labs(x = "Number of mentions (contribution to sentiment)", y = NULL)
+  labs(x = "Term frequencies (contribution to sentiment)", y = NULL) +
+  facet_wrap(~platform, ncol = 2, scales = "free_y") +
+  theme_minimal() +
+  theme(strip.text = element_text(face = "bold"))
 ```
 
 
@@ -765,7 +761,8 @@ freq <-bind_rows(
 freq
 
 ```
-###Visualization 
+
+### Visualization 
 ```{r}
 library(ggplot2)
 library(scales)  # Make sure you have scales loaded for percent_format()
@@ -780,9 +777,9 @@ ggplot(freq, aes(x = Reddit, y = YouTube, fill = word)) +
   labs(y = "YouTube", x = "Reddit")
 
 ```
-###Word cloud 
-Libraries needed for this plot 
 
+### Word cloud 
+### Libraries needed for this plot 
 ```{r}
 #install.packages("wordcloud")
 library(RColorBrewer)
@@ -803,13 +800,23 @@ freq %>%
   #we paint two wordclouds in one using two different colors
   comparison.cloud(colors = c("blue", "green"), max.words = 50, scale = c(3, 0.5))
 ```
-### WordCloud2
+
+### WordCloud2 - Youtube
 ```{r}
-freq |> 
-  inner_join(get_sentiments("bing")) |> 
-  count(word, c(sentiment, Reddit, YouTube), sort = TRUE) |> 
+combined_yt_rd |>
+  filter(platform == "YouTube") |> 
 wordcloud2(color = "random-dark",
             fontWeight = 550,
+            size = 2,
+            widgetsize = c(900, 500))
+```
+
+### WordCloud2 - Youtube
+```{r}
+combined_yt_rd |>
+  filter(platform == "Reddit") |> 
+wordcloud2(color = "random-dark",
+            fontWeight = 500,
             size = 2,
             widgetsize = c(900, 500))
 ```
