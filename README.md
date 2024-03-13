@@ -1,6 +1,8 @@
 # Data Harvesting API Project
 Data harvesting assignment repository
 
+This project aims to conduct a comprehensive analysis of "Trump"-related comments on two platforms, Youtube and Reddit. As the elections draw near, the prevalence of discussions about Trump becomes more pronounced. Our objective is to analyse and compare the reactions of individuals on these two distinct platforms, making clear the diverse perspectives and responses within these online communities.
+
 ## Libraries that we have used to get the REST API from Youtube and Reddit
 ```{r}
 library(httr)
