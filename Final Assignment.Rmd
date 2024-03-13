@@ -682,23 +682,7 @@ freq_by_rank %>%
 ```
 
 # COMPARING YOUTUBE AND REDDIT COMMENTS RELATED TO TRUMP 
-
 ### Youtube
-```{r}
-tidy_yt <- words 
-
-tidy_yt
-```
-
-### Reddit 
-```{r}
-tidy_reddit <- word |> 
-  anti_join(stop_words) |> 
-  count(word, sort = TRUE)
-
-tidy_reddit
-```
-
 ```{r}
 words_yt <- words |> # YouTube
   mutate(platform = c("YouTube"))
@@ -706,7 +690,10 @@ words_yt <- words |> # YouTube
 words_yt <- as.data.frame(words_yt) 
 words_yt <- words_yt |> rename("term_frequency" = "frequency")
 words_yt <- words_yt |> filter(word != "vote")
-  
+```
+
+### Reddit
+```{r}
 comment_words_rd <- comment_words |> # Reddit 
   mutate(platform = c("Reddit"))
 
@@ -717,6 +704,7 @@ combined_yt_rd |> group_by(platform) |>  arrange(desc(term_frequency))
 
 ```
 
+### Visualization
 ```{r}
 library(ggplot2)
 
@@ -734,50 +722,6 @@ combined_yt_rd |>
   theme(strip.text = element_text(face = "bold"))
 ```
 
-
-```{r}
-#install.packages("tidyr")
-#install.packages("stringr")
-library(tidyr)
-library(stringr)
-
-# Create a column called author for each dataframe
-freq <-bind_rows(
-  mutate(tidy_yt, platform = "YouTube"),
-  mutate(tidy_reddit, platform = "Reddit")
-) |>  
-  # Regex to identify words and not _words_
-  mutate(word = str_extract(word, "[a-z']+")) |> 
-  # Count the number of mentions of a word for an author
-  count(platform, word) |> 
-  # Calculate proportion over the total sum of words
-  group_by(platform) |> 
-  mutate(proportion = n / sum(n)) |>  
-  select(-n) |> 
-  # Reshape the dataframe
-  # Pivot wider means: more columns, less rows
-  pivot_wider(names_from = platform, values_from = proportion) 
-
-freq
-
-```
-
-### Visualization 
-```{r}
-library(ggplot2)
-library(scales)  # Make sure you have scales loaded for percent_format()
-
-ggplot(freq, aes(x = Reddit, y = YouTube, fill = word)) +
-  geom_abline(intercept = 0, slope = 1, color = "gray40", linetype = 2) +
-  geom_jitter(alpha = 0.1, size = 0.5, width = 0.3, height = 0.3) +
-  geom_text(aes(label = word), check_overlap = TRUE, vjust = 0.5) +
-  scale_x_log10(labels = percent_format()) +
-  scale_y_log10(labels = percent_format()) +
-  theme(legend.position = "none") +
-  labs(y = "YouTube", x = "Reddit")
-
-```
-
 ### Word cloud 
 ### Libraries needed for this plot 
 ```{r}
@@ -788,36 +732,33 @@ library(reshape2)
 library(wordcloud2)
 ```
 
-### WordCloud
-```{r}
-freq %>%
-  #we get sentiments
-  inner_join(get_sentiments("bing")) %>%
-  #we count word mentions
-  count(word, sentiment, sort = TRUE) %>%
-  #we establish criteria for size
-  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
-  #we paint two wordclouds in one using two different colors
-  comparison.cloud(colors = c("blue", "green"), max.words = 50, scale = c(3, 0.5))
-```
-
 ### WordCloud2 - Youtube
 ```{r}
-combined_yt_rd |>
+yt_wordclod <- combined_yt_rd |>
   filter(platform == "YouTube") |> 
 wordcloud2(color = "random-dark",
             fontWeight = 550,
             size = 2,
             widgetsize = c(900, 500))
+
+yt_wordclod
 ```
 
-### WordCloud2 - Youtube
+### WordCloud2 - Reddit
 ```{r}
-combined_yt_rd |>
+Rd_wordcloud <- combined_yt_rd |>
   filter(platform == "Reddit") |> 
 wordcloud2(color = "random-dark",
-            fontWeight = 500,
-            size = 2,
+            fontWeight = 550,
+            size = 0.8,
             widgetsize = c(900, 500))
+
+Rd_wordcloud
 ```
+
+### Shiny App
+```{r}
+
+```
+
 
